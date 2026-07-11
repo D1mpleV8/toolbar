@@ -1,6 +1,16 @@
-import unittest
 import os
 import sys
+
+# Dynamic path injection: ensure the parent directory of 'pctoolbox' is in sys.path
+# This guarantees that 'import pctoolbox' or 'from pctoolbox' works flawlessly
+# when running the test suite directly as 'python pctoolbox/tests/test_toolbox.py'
+current_dir = os.path.dirname(os.path.abspath(__file__)) # pctoolbox/tests
+pctoolbox_dir = os.path.dirname(current_dir)             # pctoolbox
+parent_dir = os.path.dirname(pctoolbox_dir)              # parent of pctoolbox
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+import unittest
 import time
 from PyQt6.QtWidgets import QApplication
 
