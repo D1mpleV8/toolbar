@@ -10,6 +10,7 @@ from pctoolbox.ui.optimizer_view import OptimizerView
 from pctoolbox.ui.macro_view import MacroView
 from pctoolbox.ui.network_view import NetworkView
 from pctoolbox.ui.organizer_view import OrganizerView
+from pctoolbox.ui.deep_cleaner_view import DeepCleanerView
 from pctoolbox.ui.quick_launcher import QuickLauncher
 
 class MainWindow(QMainWindow):
@@ -26,7 +27,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Steam PC Toolbox v1.0.0 Pro-Edition Suite")
-        self.resize(900, 620)
+        self.resize(920, 640)
         self._is_closing_for_real = False  # Track if we are fully quitting or just closing window
 
         # Set Window Icon
@@ -102,10 +103,12 @@ class MainWindow(QMainWindow):
         self.view_macro = MacroView()
         self.view_network = NetworkView()
         self.view_organizer = OrganizerView()
+        self.view_deep_cleaner = DeepCleanerView()
 
         # Add tabs
         self.tabs.addTab(self.view_dashboard, "Dashboard")
         self.tabs.addTab(self.view_cleaner, "System Cleaner")
+        self.tabs.addTab(self.view_deep_cleaner, "Deep Cleaner")
         self.tabs.addTab(self.view_optimizer, "Game Optimizer (Pro)")
         self.tabs.addTab(self.view_macro, "CV Automation (Pro)")
         self.tabs.addTab(self.view_network, "Network & Connectivity")
@@ -204,6 +207,7 @@ class MainWindow(QMainWindow):
         self.view_macro.refresh_ui()
         self.view_network.refresh_ui()
         self.view_organizer.refresh_ui()
+        self.view_deep_cleaner.refresh_ui()
 
     def setup_system_tray(self):
         """Creates the native system tray integration to prevent Taskbar clutter."""
@@ -280,6 +284,9 @@ class MainWindow(QMainWindow):
 
             # Stop Smart Organizer watcher
             self.view_organizer.stop_all_workers()
+
+            # Stop Deep Cleaner threads
+            self.view_deep_cleaner.stop_all_workers()
 
             # Stop Quick Launcher threads
             if self.quick_launcher.search_thread and self.quick_launcher.search_thread.isRunning():
