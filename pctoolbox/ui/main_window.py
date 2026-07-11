@@ -10,6 +10,7 @@ from pctoolbox.ui.optimizer_view import OptimizerView
 from pctoolbox.ui.macro_view import MacroView
 from pctoolbox.ui.network_view import NetworkView
 from pctoolbox.ui.organizer_view import OrganizerView
+from pctoolbox.ui.quick_launcher import QuickLauncher
 
 class MainWindow(QMainWindow):
     """
@@ -19,6 +20,7 @@ class MainWindow(QMainWindow):
     - Modern Multi-Threading via isolated background worker threads.
     - Global/Local Hotkey Simulation (F9 key binding) to toggle macros.
     - Full System Tray integration (minimize to tray on close, run in background).
+    - Alt+Space Floating Quick Launcher search integration.
     - Pro VS Free feature toggle simulation button.
     """
     def __init__(self):
@@ -115,11 +117,37 @@ class MainWindow(QMainWindow):
         self.shortcut_f9 = QShortcut(QKeySequence("F9"), self)
         self.shortcut_f9.activated.connect(self.view_macro.toggle_macro_state_f9)
 
+        # Instantiate Floating Glassmorphic Quick Launcher
+        self.quick_launcher = QuickLauncher()
+
+        # Setup Alt+Space Hotkey to toggle Quick Launcher visibility
+        self.shortcut_alt_space = QShortcut(QKeySequence("Alt+Space"), self)
+        self.shortcut_alt_space.activated.connect(self.toggle_quick_launcher)
+
         # Initialize License State & UI texts
         self.update_license_ui_elements()
 
         # Initialize System Tray
         self.setup_system_tray()
+
+    def toggle_quick_launcher(self):
+        """Shows or hides the floating launcher window."""
+        if self.quick_launcher.isVisible():
+            self.quick_launcher.hide()
+        else:
+            # Centering the floating widget relative to the main window
+            main_geo = self.geometry()
+            launcher_width = self.quick_launcher.width()
+            launcher_height = self.quick_launcher.height()
+
+            x = main_geo.x() + (main_geo.width() - launcher_width) // 2
+            y = main_geo.y() + (main_geo.height() - launcher_height) // 2
+
+            self.quick_launcher.move(x, y)
+            self.quick_launcher.show()
+            self.quick_launcher.activateWindow()
+            self.quick_launcher.txt_search.setFocus()
+            self.quick_launcher.txt_search.selectAll()
 
     def toggle_license_state(self):
         """Simulate Steamworks API toggle of IS_PRO_VERSION"""
@@ -252,6 +280,12 @@ class MainWindow(QMainWindow):
 
             # Stop Smart Organizer watcher
             self.view_organizer.stop_all_workers()
+
+            # Stop Quick Launcher threads
+            if self.quick_launcher.search_thread and self.quick_launcher.search_thread.isRunning():
+                self.quick_launcher.search_thread.disconnect()
+                self.quick_launcher.search_thread.terminate()
+            self.quick_launcher.close()
 
             event.accept()
         else:
