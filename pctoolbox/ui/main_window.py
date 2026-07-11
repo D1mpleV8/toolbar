@@ -9,13 +9,14 @@ from pctoolbox.ui.cleaner_view import CleanerView
 from pctoolbox.ui.optimizer_view import OptimizerView
 from pctoolbox.ui.macro_view import MacroView
 from pctoolbox.ui.network_view import NetworkView
+from pctoolbox.ui.organizer_view import OrganizerView
 
 class MainWindow(QMainWindow):
     """
     Sleek, feature-rich main window for the Steam PC Toolbox application.
     Integrates all standard/free and advanced views with full support for:
     - Production-ready non-hardcoded absolute asset paths (PyInstaller / sys._MEIPASS).
-    - Modern Multi-Threading via isolated Cleaner/Optimizer/Macro/Network threads.
+    - Modern Multi-Threading via isolated background worker threads.
     - Global/Local Hotkey Simulation (F9 key binding) to toggle macros.
     - Full System Tray integration (minimize to tray on close, run in background).
     - Pro VS Free feature toggle simulation button.
@@ -23,7 +24,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Steam PC Toolbox v1.0.0 Pro-Edition Suite")
-        self.resize(850, 600)
+        self.resize(900, 620)
         self._is_closing_for_real = False  # Track if we are fully quitting or just closing window
 
         # Set Window Icon
@@ -98,6 +99,7 @@ class MainWindow(QMainWindow):
         self.view_optimizer = OptimizerView()
         self.view_macro = MacroView()
         self.view_network = NetworkView()
+        self.view_organizer = OrganizerView()
 
         # Add tabs
         self.tabs.addTab(self.view_dashboard, "Dashboard")
@@ -105,6 +107,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.view_optimizer, "Game Optimizer (Pro)")
         self.tabs.addTab(self.view_macro, "CV Automation (Pro)")
         self.tabs.addTab(self.view_network, "Network & Connectivity")
+        self.tabs.addTab(self.view_organizer, "Smart Organizer")
 
         main_layout.addWidget(self.tabs)
 
@@ -172,6 +175,7 @@ class MainWindow(QMainWindow):
         self.view_optimizer.refresh_ui()
         self.view_macro.refresh_ui()
         self.view_network.refresh_ui()
+        self.view_organizer.refresh_ui()
 
     def setup_system_tray(self):
         """Creates the native system tray integration to prevent Taskbar clutter."""
@@ -245,6 +249,9 @@ class MainWindow(QMainWindow):
 
             # Stop network views and monitors
             self.view_network.stop_all_workers()
+
+            # Stop Smart Organizer watcher
+            self.view_organizer.stop_all_workers()
 
             event.accept()
         else:
