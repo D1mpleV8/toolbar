@@ -14,6 +14,7 @@ from pctoolbox.ui.deep_cleaner_view import DeepCleanerView
 from pctoolbox.ui.window_manager_view import WindowManagerView
 from pctoolbox.ui.privacy_shield_view import PrivacyShieldView
 from pctoolbox.ui.performance_benchmark_view import PerformanceBenchmarkView
+from pctoolbox.ui.profile_sync_view import ProfileSyncView
 from pctoolbox.ui.quick_launcher import QuickLauncher
 
 class MainWindow(QMainWindow):
@@ -110,6 +111,7 @@ class MainWindow(QMainWindow):
         self.view_window_manager = WindowManagerView()
         self.view_privacy_shield = PrivacyShieldView()
         self.view_performance = PerformanceBenchmarkView()
+        self.view_profile_sync = ProfileSyncView()
 
         # Add tabs
         self.tabs.addTab(self.view_dashboard, "Dashboard")
@@ -118,6 +120,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.view_window_manager, "Window Manager")
         self.tabs.addTab(self.view_performance, "Performance & Stress")
         self.tabs.addTab(self.view_privacy_shield, "Privacy Shield")
+        self.tabs.addTab(self.view_profile_sync, "Profile & Sync")
         self.tabs.addTab(self.view_optimizer, "Game Optimizer (Pro)")
         self.tabs.addTab(self.view_macro, "CV Automation (Pro)")
         self.tabs.addTab(self.view_network, "Network & Connectivity")
@@ -220,6 +223,7 @@ class MainWindow(QMainWindow):
         self.view_window_manager.refresh_ui()
         self.view_privacy_shield.refresh_ui()
         self.view_performance.refresh_ui()
+        self.view_profile_sync.refresh_ui()
 
     def setup_system_tray(self):
         """Creates the native system tray integration to prevent Taskbar clutter."""
@@ -308,6 +312,9 @@ class MainWindow(QMainWindow):
 
             # Stop Performance & Stress workers
             self.view_performance.stop_all_workers()
+
+            # Stop Profile & Sync threads
+            self.view_profile_sync.stop_all_workers()
 
             # Stop Quick Launcher threads
             if self.quick_launcher.search_thread and self.quick_launcher.search_thread.isRunning():
