@@ -142,6 +142,10 @@ class MainWindow(QMainWindow):
         # Initialize License State & UI texts
         self.update_license_ui_elements()
 
+        # Connect Dashboard buttons to their tab view transitions
+        self.view_dashboard.btn_stress.clicked.connect(lambda: self.tabs.setCurrentWidget(self.view_performance))
+        self.view_dashboard.btn_overlay.clicked.connect(lambda: self.tabs.setCurrentWidget(self.view_window_manager))
+
         # Initialize System Tray
         self.setup_system_tray()
 

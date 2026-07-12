@@ -69,7 +69,8 @@ class WindowManagerThread(QThread):
     @staticmethod
     def set_always_on_top(hwnd: int, enable: bool) -> bool:
         """
-        Pins or unpins a window natively using OS APIs.
+        NATIVELY Pins or unpins a window always-on-top on Windows via SetWindowPos,
+        adhering to SWP_NOMOVE (0x0002) and SWP_NOSIZE (0x0001) flags.
         """
         is_windows = sys.platform.startswith("win")
         if is_windows:
@@ -78,6 +79,7 @@ class WindowManagerThread(QThread):
                 # SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002
                 hwnd_insert_after = -1 if enable else -2
                 flags = 0x0001 | 0x0002
+                # Call SetWindowPos natively to force window on top of game sessions
                 ctypes.windll.user32.SetWindowPos(hwnd, hwnd_insert_after, 0, 0, 0, 0, flags)
                 return True
             except Exception:
