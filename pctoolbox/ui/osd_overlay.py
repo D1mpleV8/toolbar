@@ -13,16 +13,22 @@ class OSDOverlayWidget(QWidget):
         super().__init__()
 
         # Stays on top, frameless, transparent for inputs (click-through overlay)
+        # We include WindowTransparentForInput directly in WindowFlags to ensure input click-through natively across all OS
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.Tool |
+            Qt.WindowType.WindowTransparentForInput
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-        # Enable click-through natively so players can click through OSD directly into game
-        # To let users drag the OSD, input transparency can be toggled.
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForInput, True)
+        # Defensive attribute check:
+        # Avoid crashing on certain PyQt6 Py3.13 packages if WA_TransparentForInput is missing
+        try:
+            if hasattr(Qt.WidgetAttribute, "WA_TransparentForInput"):
+                self.setAttribute(Qt.WidgetAttribute.WA_TransparentForInput, True)
+        except Exception:
+            pass
 
         self.resize(250, 160)
         self.drag_position = QPoint()

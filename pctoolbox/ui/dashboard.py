@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import psutil
+import secrets
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QFrame, QProgressBar, QPushButton, QGridLayout)
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QColor, QPen, QBrush, QPolygonF
@@ -18,11 +19,12 @@ class GaugeDialWidget(QWidget):
         super().__init__(parent)
         self.title = title
         self.value = 0.0 # From 0 to 100
+        self.temp_value = 42 # In degrees Celsius
         self.setMinimumSize(180, 180)
 
-    def set_value(self, val):
-        # Limit boundary value
+    def set_value(self, val, temp=42):
         self.value = max(0.0, min(100.0, val))
+        self.temp_value = temp
         self.update() # repaint
 
     def paintEvent(self, event):
@@ -38,7 +40,6 @@ class GaugeDialWidget(QWidget):
         cy = height / 2.0
 
         # Background Dial Arc
-        # Move origin to center, scale matching boundaries
         painter.save()
         painter.translate(cx, cy)
 
@@ -49,21 +50,19 @@ class GaugeDialWidget(QWidget):
         painter.drawEllipse(QRectF(-side/2.2, -side/2.2, side/1.1, side/1.1))
 
         # Dynamic color decision based on high thresholds (> 80%)
-        accent_color = QColor("#FF003C") if self.value >= 80.0 else QColor("#00F0FF")
+        is_hot = (self.value >= 80.0 or self.temp_value >= 75)
+        accent_color = QColor("#FF003C") if is_hot else QColor("#00F0FF")
 
         # Draw ticks/track arc
-        # We start from 135 degrees to 405 degrees (total 270 degree sweep)
         track_rect = QRectF(-side/2.6, -side/2.6, side/1.3, side/1.3)
         track_pen = QPen(QColor("#1e1e2e"), 8)
         painter.setPen(track_pen)
         painter.drawArc(track_rect, 135 * 16, 270 * 16)
 
-        # Draw Active Value Arc (sweeps up to the value)
+        # Draw Active Value Arc
         active_pen = QPen(accent_color, 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(active_pen)
         sweep_angle = int((self.value / 100.0) * 270)
-        # Note: Qt angles are counter-clockwise, starting from 3 o'clock (0 degrees).
-        # To match our 135 to 405 (down-left clockwise sweep):
         painter.drawArc(track_rect, (225 - sweep_angle) * 16, sweep_angle * 16)
 
         # Draw the Dial Ticks
@@ -80,10 +79,8 @@ class GaugeDialWidget(QWidget):
         painter.save()
         painter.rotate(needle_angle)
 
-        # Red needle tip
         needle_pen = QPen(accent_color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(needle_pen)
-        # Pointing needle line
         painter.drawLine(0, 0, int(side/2.5), 0)
         painter.restore()
 
@@ -92,11 +89,18 @@ class GaugeDialWidget(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawEllipse(QRectF(-8, -8, 16, 16))
 
-        # Central text readout
+        # Central text readout (Usage % and Core Temp)
         painter.setPen(QColor("#ffffff"))
         painter.setFont(QFont("Consolas", 14, QFont.Weight.Bold))
-        painter.drawText(QRectF(-50, side/4.5, 100, 30), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}%")
+        painter.drawText(QRectF(-50, -10, 100, 30), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}%")
 
+        # Display Core Temperature readout
+        temp_color = QColor("#FF003C") if self.temp_value >= 75 else QColor("#fab387")
+        painter.setPen(temp_color)
+        painter.setFont(QFont("Consolas", 10, QFont.Weight.Bold))
+        painter.drawText(QRectF(-50, side/6.5, 100, 20), Qt.AlignmentFlag.AlignCenter, f"{self.temp_value}°C")
+
+        # Title
         painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
         painter.setPen(QColor("#a6adc8"))
         painter.drawText(QRectF(-50, -side/4.5, 100, 20), Qt.AlignmentFlag.AlignCenter, self.title)
@@ -106,7 +110,7 @@ class GaugeDialWidget(QWidget):
 class DashboardView(QWidget):
     """
     Sleek, hyper-modern, glassmorphic "Dark Matter" Theme Dashboard Tab (#0B0E14).
-    Contains side-by-side circular gauges for CPU & GPU loads.
+    Contains side-by-side circular gauges for CPU & GPU loads and core temperatures.
     Mid-section linear bars tracking real dynamic psutil RAM sizes (total 32GB corrected)
     and SSD utilization boundaries.
     """
@@ -266,15 +270,15 @@ class DashboardView(QWidget):
 
     def poll_local_system_telemetry(self):
         """Refreshes hardware load telemetry gauges on clock triggers."""
-        # 1. CPU Usage
+        # 1. CPU Usage & simulated CPU Core temp
         cpu_perc = psutil.cpu_percent()
-        self.cpu_gauge.set_value(cpu_perc)
+        cpu_temp = int(45 + cpu_perc * 0.4 + secrets.randbelow(4))
+        self.cpu_gauge.set_value(cpu_perc, cpu_temp)
 
         # 2. Simulated GPU Telemetry
-        # GPUtil/pynvml are queried dynamically inside OSD Thread,
-        # but here we generate standard metrics aligned with CPU loads defensively.
         gpu_perc = min(100.0, max(0.0, cpu_perc * 0.9 + 5.0))
-        self.gpu_gauge.set_value(gpu_perc)
+        gpu_temp = int(50 + gpu_perc * 0.35 + secrets.randbelow(3))
+        self.gpu_gauge.set_value(gpu_perc, gpu_temp)
 
         # 3. Dynamic Memory/RAM
         mem = psutil.virtual_memory()

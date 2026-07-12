@@ -8,10 +8,8 @@ def prime_factor_heavy_worker(stop_flag):
     Genuinely pushes logical core CPU utilization to 100%
     by continuously calculating large prime factors.
     """
-    # Extremely heavy loop
     candidate = 1000000000000037
     while not stop_flag.is_set():
-        # Force massive maths iterations
         factor = 2
         while factor * factor <= candidate:
             if stop_flag.is_set():
@@ -26,8 +24,8 @@ class BenchmarkStressThread(QThread):
     """
     Background worker for CPU Multi-Core Stress Testing (FREE FEATURE).
     Genuinely pushes all logical CPU cores to 100% usage utilizing Python's
-    multiprocessing module to spawn parallel prime-calculation background processes,
-    refraining from fake sleep/mock loops.
+    multiprocessing module to spawn parallel prime-calculation background processes.
+    Uses 'spawn' start method to prevent deadlocks and deprecation fork warnings.
     """
     progress_changed = pyqtSignal(int)
     telemetry_updated = pyqtSignal(dict) # dict: {"load": int, "temp": int}
@@ -53,14 +51,15 @@ class BenchmarkStressThread(QThread):
         self.progress_changed.emit(5)
         time.sleep(0.4)
 
-        # multiprocessing safe stop flag
-        manager = multiprocessing.Manager()
+        # Use 'spawn' context specifically to avoid Unix multi-threaded fork deadlocks!
+        ctx = multiprocessing.get_context("spawn")
+        manager = ctx.Manager()
         stop_flag = manager.Event()
 
-        # Spawn sub-processes to genuinely stress cores to 100%
+        # Spawn sub-processes defensively
         self.sub_processes = []
         for i in range(cpu_count):
-            p = multiprocessing.Process(target=prime_factor_heavy_worker, args=(stop_flag,))
+            p = ctx.Process(target=prime_factor_heavy_worker, args=(stop_flag,))
             p.daemon = True
             p.start()
             self.sub_processes.append(p)
