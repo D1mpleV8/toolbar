@@ -436,6 +436,7 @@ class MainWindow(QMainWindow):
         """
         if self._is_closing_for_real:
             # Propagate termination to all threads safely before exiting
+            self.view_dashboard.stop_all_workers()
             if self.view_cleaner.clean_thread and self.view_cleaner.clean_thread.isRunning():
                 self.view_cleaner.clean_thread.stop()
                 self.view_cleaner.clean_thread.wait()

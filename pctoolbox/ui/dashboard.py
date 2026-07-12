@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QColor, QPen, QBrush, QPolygonF, QRadialGradient, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF
 from pctoolbox import config
+from pctoolbox.threads.backend_sensors import BackendSensorsThread
 
 class GaugeDialWidget(QWidget):
     """
@@ -21,11 +22,11 @@ class GaugeDialWidget(QWidget):
         super().__init__(parent)
         self.title = title
         self.value = 0.0 # Usage percentage (0 to 100)
-        self.temp_value = 42 # In degrees Celsius
+        self.temp_value = "N/A" # Celsius temp reading or "N/A"
         self.setMinimumSize(220, 220)
 
-    def set_value(self, val, temp=42):
-        self.value = max(0.0, min(100.0, val))
+    def set_value(self, val, temp="N/A"):
+        self.value = max(0.0, min(100.0, float(val) if val != "N/A" else 0.0))
         self.temp_value = temp
         self.update() # Triggers premium QPainter repaint
 
@@ -45,13 +46,13 @@ class GaugeDialWidget(QWidget):
         painter.translate(cx, cy)
 
         # Color palette setup
-        is_hot = (self.value >= 80.0 or self.temp_value >= 75)
+        is_numeric_temp = isinstance(self.temp_value, (int, float))
+        is_hot = (self.value >= 80.0 or (is_numeric_temp and self.temp_value >= 75))
         accent_color = QColor("#FF003C") if is_hot else QColor("#00F0FF")
         glow_color = QColor("rgba(255, 0, 60, 40)") if is_hot else QColor("rgba(0, 240, 255, 40)")
 
         # 1. Draw Glassmorphic Translucent Container Background
         painter.setPen(Qt.PenStyle.NoPen)
-        # Radial gradient for deep material reflection
         grad = QRadialGradient(0, 0, side/2.1)
         grad.setColorAt(0.0, QColor("rgba(22, 27, 34, 150)"))
         grad.setColorAt(1.0, QColor("rgba(11, 14, 20, 220)"))
@@ -65,7 +66,6 @@ class GaugeDialWidget(QWidget):
         painter.drawEllipse(QRectF(-side/2.1, -side/2.1, side/1.05, side/1.1))
 
         # 2. Draw outer glowing arc (aesthetic performance indicator)
-        # Sweeps 270 degrees clockwise starting at 135 (bottom-left)
         track_rect = QRectF(-side/2.8, -side/2.8, side/1.4, side/1.35)
 
         # Glow layer
@@ -90,7 +90,6 @@ class GaugeDialWidget(QWidget):
             angle = 135 + i * 15
             painter.save()
             painter.rotate(angle)
-            # Long thick tick for principal metrics
             if i % 3 == 0:
                 painter.setPen(QPen(accent_color, 1.5))
                 painter.drawLine(int(side/2.8), 0, int(side/2.55), 0)
@@ -103,7 +102,6 @@ class GaugeDialWidget(QWidget):
         painter.save()
         painter.rotate(needle_angle)
 
-        # Cyber needle line
         needle_pen = QPen(accent_color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(needle_pen)
         painter.drawLine(0, 0, int(side/2.9), 0)
@@ -126,10 +124,11 @@ class GaugeDialWidget(QWidget):
         painter.drawText(QRectF(30, -15, 20, 20), Qt.AlignmentFlag.AlignLeft, "%")
 
         # Core temperature reading directly underneath
-        temp_color = QColor("#FF003C") if self.temp_value >= 75 else QColor("#fab387")
+        temp_disp = f"{self.temp_value}°C" if is_numeric_temp else "N/A"
+        temp_color = QColor("#FF003C") if (is_numeric_temp and self.temp_value >= 75) else QColor("#fab387")
         painter.setPen(temp_color)
         painter.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
-        painter.drawText(QRectF(-50, 18, 100, 20), Qt.AlignmentFlag.AlignCenter, f"{self.temp_value}°C")
+        painter.drawText(QRectF(-50, 18, 100, 20), Qt.AlignmentFlag.AlignCenter, temp_disp)
 
         # Upper Title Label
         painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
@@ -141,18 +140,16 @@ class GaugeDialWidget(QWidget):
 class DashboardView(QWidget):
     """
     Sleek, hyper-modern, glassmorphic "Dark Matter" Theme Dashboard Tab (#0B0E14).
-    Contains side-by-side circular gauges for CPU & GPU loads and core temperatures.
-    Mid-section linear bars tracking real dynamic psutil RAM sizes (total 32GB corrected)
-    and SSD utilization boundaries.
+    Driven by real-time hardware signals using the BackendSensorsThread.
     """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.init_ui()
 
-        # Configure local auto-telemetry refresher
-        self.telemetry_timer = QTimer(self)
-        self.telemetry_timer.timeout.connect(self.poll_local_system_telemetry)
-        self.telemetry_timer.start(1000) # Poll every second
+        # Instantiate low-level real sensors thread
+        self.sensors_thread = BackendSensorsThread()
+        self.sensors_thread.telemetry_received.connect(self.update_telemetry_widgets)
+        self.sensors_thread.start()
 
     def init_ui(self):
         # Dark Matter Base Theme Styling
@@ -212,10 +209,7 @@ class DashboardView(QWidget):
         mid_layout.setContentsMargins(20, 15, 20, 15)
         mid_layout.setSpacing(12)
 
-        # Actual RAM Detection Bug Fixed using psutil
-        ram_total_gb = psutil.virtual_memory().total / (1024**3)
-
-        self.lbl_ram_title = QLabel(f"Actual Memory Overhead (Total System: {ram_total_gb:.1f} GB)")
+        self.lbl_ram_title = QLabel("System Memory Overhead (Used: -- GB / Total: -- GB)")
         self.lbl_ram_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.lbl_ram_title.setStyleSheet("color: #a6adc8;")
         mid_layout.addWidget(self.lbl_ram_title)
@@ -300,32 +294,21 @@ class DashboardView(QWidget):
         strip_lay.addWidget(self.lbl_license)
         layout.addWidget(self.license_strip)
 
-        # Initial Telemetry Poll
-        self.poll_local_system_telemetry()
+    def update_telemetry_widgets(self, m: dict):
+        """Thread-safe UI callback that receives real low-level sensor values."""
+        # 1. Update Speedometers with REAL metrics
+        self.cpu_gauge.set_value(m.get("cpu_perc", 0.0), m.get("cpu_temp", "N/A"))
+        self.gpu_gauge.set_value(m.get("gpu_perc", 0.0), m.get("gpu_temp", "N/A"))
 
-    def poll_local_system_telemetry(self):
-        """Refreshes hardware load telemetry gauges on clock triggers."""
-        cpu_perc = psutil.cpu_percent()
-        cpu_temp = int(45 + cpu_perc * 0.4 + secrets.randbelow(4))
-        self.cpu_gauge.set_value(cpu_perc, cpu_temp)
+        # 2. Update RAM bar
+        ram_perc = m.get("ram_perc", 0.0)
+        self.ram_bar.setValue(int(ram_perc))
+        self.lbl_ram_title.setText(f"System Memory Overhead (Used: {m.get('ram_used', 0.0):.1f} GB / Total: {m.get('ram_total', 16.0):.1f} GB)")
 
-        gpu_perc = min(100.0, max(0.0, cpu_perc * 0.9 + 5.0))
-        gpu_temp = int(50 + gpu_perc * 0.35 + secrets.randbelow(3))
-        self.gpu_gauge.set_value(gpu_perc, gpu_temp)
-
-        mem = psutil.virtual_memory()
-        self.ram_bar.setValue(int(mem.percent))
-        ram_used_gb = mem.used / (1024**3)
-        ram_total_gb = mem.total / (1024**3)
-        self.lbl_ram_title.setText(f"System Memory Overhead (Used: {ram_used_gb:.1f} GB / Total: {ram_total_gb:.1f} GB)")
-
-        try:
-            usage = shutil.disk_usage("/")
-            ssd_perc = int((usage.used / usage.total) * 100.0)
-            self.ssd_bar.setValue(ssd_perc)
-            self.lbl_ssd_title.setText(f"Primary Drive Allocation (Used: {usage.used/(1024**3):.1f} GB / Total: {usage.total/(1024**3):.1f} GB)")
-        except Exception:
-            self.ssd_bar.setValue(45)
+        # 3. Update SSD bar
+        ssd_perc = m.get("ssd_perc", 0.0)
+        self.ssd_bar.setValue(int(ssd_perc))
+        self.lbl_ssd_title.setText(f"Primary Drive Allocation (Used: {m.get('ssd_used', 0.0):.1f} GB / Total: {m.get('ssd_total', 250.0):.1f} GB)")
 
     def refresh_ui(self):
         """Called dynamically upon licensing changes."""
@@ -335,3 +318,8 @@ class DashboardView(QWidget):
         else:
             self.lbl_license.setText("Steamworks Authentication: STANDBY (Click top toggle to simulate Pro edition)")
             self.lbl_license.setStyleSheet("color: #f38ba8;")
+
+    def stop_all_workers(self):
+        if self.sensors_thread and self.sensors_thread.isRunning():
+            self.sensors_thread.stop()
+            self.sensors_thread.wait()
