@@ -5,27 +5,29 @@ import psutil
 import secrets
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QFrame, QProgressBar, QPushButton, QGridLayout)
-from PyQt6.QtGui import QFont, QPixmap, QPainter, QColor, QPen, QBrush, QPolygonF
+from PyQt6.QtGui import QFont, QPixmap, QPainter, QColor, QPen, QBrush, QPolygonF, QRadialGradient, QLinearGradient
 from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF
 from pctoolbox import config
 
 class GaugeDialWidget(QWidget):
     """
-    Hyper-Modern Circular Gauge Dial (Car Speedometer style).
-    Specifies animated sweep needle, with Cyber-Blue (#00F0FF) standard accents,
-    shifting dynamically to Electric Red (#FF003C) when usage crosses 80%.
+    Masterpiece Circular Gauge Dial (Car Speedometer style).
+    Specifies animated sweep needle, premium outer glowing arc, smooth inner track,
+    and massive, elegant metric text directly in the center.
+    Utilizes Cyber-Blue (#00F0FF) standard glows shifting dynamically
+    to Electric Red (#FF003C) when telemetry crosses 80%.
     """
     def __init__(self, title="CPU", parent=None):
         super().__init__(parent)
         self.title = title
-        self.value = 0.0 # From 0 to 100
+        self.value = 0.0 # Usage percentage (0 to 100)
         self.temp_value = 42 # In degrees Celsius
-        self.setMinimumSize(180, 180)
+        self.setMinimumSize(220, 220)
 
     def set_value(self, val, temp=42):
         self.value = max(0.0, min(100.0, val))
         self.temp_value = temp
-        self.update() # repaint
+        self.update() # Triggers premium QPainter repaint
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -39,71 +41,100 @@ class GaugeDialWidget(QWidget):
         cx = width / 2.0
         cy = height / 2.0
 
-        # Background Dial Arc
         painter.save()
         painter.translate(cx, cy)
 
-        # Outer Glass Ring
-        glass_pen = QPen(QColor("rgba(203, 166, 247, 40)"), 4)
-        painter.setPen(glass_pen)
-        painter.setBrush(QColor("rgba(30, 30, 46, 120)")) # Translucent Dark Matter
-        painter.drawEllipse(QRectF(-side/2.2, -side/2.2, side/1.1, side/1.1))
-
-        # Dynamic color decision based on high thresholds (> 80%)
+        # Color palette setup
         is_hot = (self.value >= 80.0 or self.temp_value >= 75)
         accent_color = QColor("#FF003C") if is_hot else QColor("#00F0FF")
+        glow_color = QColor("rgba(255, 0, 60, 40)") if is_hot else QColor("rgba(0, 240, 255, 40)")
 
-        # Draw ticks/track arc
-        track_rect = QRectF(-side/2.6, -side/2.6, side/1.3, side/1.3)
-        track_pen = QPen(QColor("#1e1e2e"), 8)
+        # 1. Draw Glassmorphic Translucent Container Background
+        painter.setPen(Qt.PenStyle.NoPen)
+        # Radial gradient for deep material reflection
+        grad = QRadialGradient(0, 0, side/2.1)
+        grad.setColorAt(0.0, QColor("rgba(22, 27, 34, 150)"))
+        grad.setColorAt(1.0, QColor("rgba(11, 14, 20, 220)"))
+        painter.setBrush(QBrush(grad))
+        painter.drawEllipse(QRectF(-side/2.1, -side/2.1, side/1.05, side/1.1))
+
+        # Thin outer glass rim border (#2A3241)
+        rim_pen = QPen(QColor("#2A3241"), 1.5)
+        painter.setPen(rim_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(QRectF(-side/2.1, -side/2.1, side/1.05, side/1.1))
+
+        # 2. Draw outer glowing arc (aesthetic performance indicator)
+        # Sweeps 270 degrees clockwise starting at 135 (bottom-left)
+        track_rect = QRectF(-side/2.8, -side/2.8, side/1.4, side/1.35)
+
+        # Glow layer
+        glow_pen = QPen(glow_color, 14, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        painter.setPen(glow_pen)
+        painter.drawArc(track_rect, 135 * 16, 270 * 16)
+
+        # Smooth inner track
+        track_pen = QPen(QColor("#161B22"), 8)
         painter.setPen(track_pen)
         painter.drawArc(track_rect, 135 * 16, 270 * 16)
 
-        # Draw Active Value Arc
+        # Active glowing meter
         active_pen = QPen(accent_color, 8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(active_pen)
         sweep_angle = int((self.value / 100.0) * 270)
         painter.drawArc(track_rect, (225 - sweep_angle) * 16, sweep_angle * 16)
 
-        # Draw the Dial Ticks
-        painter.setPen(QPen(QColor("#45475a"), 1))
-        for i in range(11):
-            angle = 135 + i * 27
+        # 3. Draw Cyberdial Tick marks
+        painter.setPen(QPen(QColor("rgba(0, 240, 255, 30)"), 1))
+        for i in range(19):
+            angle = 135 + i * 15
             painter.save()
             painter.rotate(angle)
-            painter.drawLine(int(side/2.6), 0, int(side/2.4), 0)
+            # Long thick tick for principal metrics
+            if i % 3 == 0:
+                painter.setPen(QPen(accent_color, 1.5))
+                painter.drawLine(int(side/2.8), 0, int(side/2.55), 0)
+            else:
+                painter.drawLine(int(side/2.8), 0, int(side/2.7), 0)
             painter.restore()
 
-        # Draw Animated Sweep Needle
+        # 4. Draw Animated Sweep Needle
         needle_angle = 135 + (self.value / 100.0) * 270
         painter.save()
         painter.rotate(needle_angle)
 
-        needle_pen = QPen(accent_color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+        # Cyber needle line
+        needle_pen = QPen(accent_color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
         painter.setPen(needle_pen)
-        painter.drawLine(0, 0, int(side/2.5), 0)
+        painter.drawLine(0, 0, int(side/2.9), 0)
         painter.restore()
 
         # Center cap
         painter.setBrush(accent_color)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawEllipse(QRectF(-8, -8, 16, 16))
+        painter.drawEllipse(QRectF(-6, -6, 12, 16))
 
-        # Central text readout (Usage % and Core Temp)
+        # 5. Massive, Elegant Center Telemetry Text
+        # Core usage %
         painter.setPen(QColor("#ffffff"))
-        painter.setFont(QFont("Consolas", 14, QFont.Weight.Bold))
-        painter.drawText(QRectF(-50, -10, 100, 30), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}%")
+        painter.setFont(QFont("Segoe UI", 26, QFont.Weight.Light)) # Large thin modern font
+        painter.drawText(QRectF(-75, -25, 150, 40), Qt.AlignmentFlag.AlignCenter, f"{int(self.value)}")
 
-        # Display Core Temperature readout
+        # Small elegant % label
+        painter.setPen(QColor("rgba(255, 255, 255, 120)"))
+        painter.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        painter.drawText(QRectF(30, -15, 20, 20), Qt.AlignmentFlag.AlignLeft, "%")
+
+        # Core temperature reading directly underneath
         temp_color = QColor("#FF003C") if self.temp_value >= 75 else QColor("#fab387")
         painter.setPen(temp_color)
-        painter.setFont(QFont("Consolas", 10, QFont.Weight.Bold))
-        painter.drawText(QRectF(-50, side/6.5, 100, 20), Qt.AlignmentFlag.AlignCenter, f"{self.temp_value}°C")
+        painter.setFont(QFont("Consolas", 11, QFont.Weight.Bold))
+        painter.drawText(QRectF(-50, 18, 100, 20), Qt.AlignmentFlag.AlignCenter, f"{self.temp_value}°C")
 
-        # Title
-        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Medium))
-        painter.setPen(QColor("#a6adc8"))
-        painter.drawText(QRectF(-50, -side/4.5, 100, 20), Qt.AlignmentFlag.AlignCenter, self.title)
+        # Upper Title Label
+        painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
+        painter.setPen(QColor("rgba(0, 240, 255, 150)"))
+        painter.drawText(QRectF(-60, -side/3.8, 120, 20), Qt.AlignmentFlag.AlignCenter, self.title)
 
         painter.restore()
 
@@ -130,9 +161,9 @@ class DashboardView(QWidget):
                 background-color: #0B0E14;
             }
             QFrame {
-                background-color: rgba(15, 20, 28, 180);
-                border: 1px solid rgba(0, 240, 255, 60);
-                border-radius: 10px;
+                background-color: #161B22; /* Frosted Glass darker tone */
+                border: 1px solid #2A3241; /* Glass border */
+                border-radius: 12px;
             }
             QLabel {
                 color: #cdd6f4;
@@ -140,36 +171,36 @@ class DashboardView(QWidget):
                 background: transparent;
             }
             QProgressBar {
-                border: 1px solid rgba(49, 50, 68, 120);
+                border: 1px solid #2A3241;
                 border-radius: 6px;
                 text-align: center;
                 color: #ffffff;
-                background-color: #11111b;
+                background-color: #0B0E14;
             }
             QProgressBar::chunk {
-                background-color: #00F0FF;
+                background-color: #00F0FF; /* Cyber-Blue */
                 border-radius: 5px;
             }
         """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
 
         # Header Title
-        title_lbl = QLabel("🚀 Steam PC Power Dashboard")
+        title_lbl = QLabel("🚀 PC TOOLBOX DASHBOARD")
         title_lbl.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        title_lbl.setStyleSheet("color: #00F0FF; background: transparent; border: none;")
+        title_lbl.setStyleSheet("color: #00F0FF; background: transparent; border: none; letter-spacing: 1px;")
         layout.addWidget(title_lbl)
 
         # 1. Top Section: Two circular Dial Speedometer gauges side-by-side
         gauges_frame = QFrame()
         gauges_layout = QHBoxLayout(gauges_frame)
-        gauges_layout.setContentsMargins(15, 15, 15, 15)
-        gauges_layout.setSpacing(25)
+        gauges_layout.setContentsMargins(20, 20, 20, 20)
+        gauges_layout.setSpacing(30)
 
-        self.cpu_gauge = GaugeDialWidget(title="CPU LOAD")
-        self.gpu_gauge = GaugeDialWidget(title="GPU LOAD")
+        self.cpu_gauge = GaugeDialWidget(title="CPU STATUS")
+        self.gpu_gauge = GaugeDialWidget(title="GPU STATUS")
 
         gauges_layout.addWidget(self.cpu_gauge)
         gauges_layout.addWidget(self.gpu_gauge)
@@ -178,14 +209,15 @@ class DashboardView(QWidget):
         # 2. Middle Section: Sleek thin progress bars for actual RAM and SSD
         middle_frame = QFrame()
         mid_layout = QVBoxLayout(middle_frame)
-        mid_layout.setContentsMargins(15, 12, 15, 12)
-        mid_layout.setSpacing(10)
+        mid_layout.setContentsMargins(20, 15, 20, 15)
+        mid_layout.setSpacing(12)
 
         # Actual RAM Detection Bug Fixed using psutil
         ram_total_gb = psutil.virtual_memory().total / (1024**3)
 
         self.lbl_ram_title = QLabel(f"Actual Memory Overhead (Total System: {ram_total_gb:.1f} GB)")
         self.lbl_ram_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.lbl_ram_title.setStyleSheet("color: #a6adc8;")
         mid_layout.addWidget(self.lbl_ram_title)
 
         self.ram_bar = QProgressBar()
@@ -196,6 +228,7 @@ class DashboardView(QWidget):
         # SSD Progress Bar
         self.lbl_ssd_title = QLabel("System Storage Capacity (C:/ Drive)")
         self.lbl_ssd_title.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.lbl_ssd_title.setStyleSheet("color: #a6adc8;")
         mid_layout.addWidget(self.lbl_ssd_title)
 
         self.ssd_bar = QProgressBar()
@@ -213,37 +246,39 @@ class DashboardView(QWidget):
         # 3. Bottom Section: Action buttons
         bottom_frame = QFrame()
         bottom_layout = QGridLayout(bottom_frame)
-        bottom_layout.setContentsMargins(12, 12, 12, 12)
-        bottom_layout.setSpacing(10)
+        bottom_layout.setContentsMargins(15, 15, 15, 15)
+        bottom_layout.setSpacing(15)
 
-        self.btn_stress = QPushButton("🔥 Run Heavy Stress Test")
+        self.btn_stress = QPushButton("🔥 Run CPU Stress Test")
         self.btn_stress.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.btn_stress.setStyleSheet("""
             QPushButton {
-                background-color: rgba(255, 0, 60, 200); /* Electric Red */
-                color: #ffffff;
+                background-color: rgba(255, 0, 60, 40); /* Electric Red glass */
+                color: #FF003C;
                 border: 1px solid #FF003C;
                 border-radius: 6px;
-                padding: 10px;
+                padding: 12px;
             }
             QPushButton:hover {
                 background-color: #FF003C;
+                color: #ffffff;
             }
         """)
         bottom_layout.addWidget(self.btn_stress, 0, 0)
 
-        self.btn_overlay = QPushButton("🖥️ Enable FPS OSD Overlay")
+        self.btn_overlay = QPushButton("🖥️ Enable OSD Monitor")
         self.btn_overlay.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         self.btn_overlay.setStyleSheet("""
             QPushButton {
-                background-color: rgba(0, 240, 255, 40); /* Cyber-Blue */
+                background-color: rgba(0, 240, 255, 40); /* Cyber-Blue glass */
                 color: #00F0FF;
                 border: 1px solid #00F0FF;
                 border-radius: 6px;
-                padding: 10px;
+                padding: 12px;
             }
             QPushButton:hover {
-                background-color: rgba(0, 240, 255, 100);
+                background-color: #00F0FF;
+                color: #11111b;
             }
         """)
         bottom_layout.addWidget(self.btn_overlay, 0, 1)
@@ -254,9 +289,9 @@ class DashboardView(QWidget):
         self.license_strip = QFrame()
         self.license_strip.setStyleSheet("""
             QFrame {
-                background-color: rgba(15, 20, 28, 120);
+                background-color: rgba(22, 27, 34, 120);
                 border: 1px dashed rgba(203, 166, 247, 100);
-                border-radius: 6px;
+                border-radius: 8px;
             }
         """)
         strip_lay = QHBoxLayout(self.license_strip)
@@ -270,24 +305,20 @@ class DashboardView(QWidget):
 
     def poll_local_system_telemetry(self):
         """Refreshes hardware load telemetry gauges on clock triggers."""
-        # 1. CPU Usage & simulated CPU Core temp
         cpu_perc = psutil.cpu_percent()
         cpu_temp = int(45 + cpu_perc * 0.4 + secrets.randbelow(4))
         self.cpu_gauge.set_value(cpu_perc, cpu_temp)
 
-        # 2. Simulated GPU Telemetry
         gpu_perc = min(100.0, max(0.0, cpu_perc * 0.9 + 5.0))
         gpu_temp = int(50 + gpu_perc * 0.35 + secrets.randbelow(3))
         self.gpu_gauge.set_value(gpu_perc, gpu_temp)
 
-        # 3. Dynamic Memory/RAM
         mem = psutil.virtual_memory()
         self.ram_bar.setValue(int(mem.percent))
         ram_used_gb = mem.used / (1024**3)
         ram_total_gb = mem.total / (1024**3)
         self.lbl_ram_title.setText(f"System Memory Overhead (Used: {ram_used_gb:.1f} GB / Total: {ram_total_gb:.1f} GB)")
 
-        # 4. Storage/Disk space C:/ drive
         try:
             usage = shutil.disk_usage("/")
             ssd_perc = int((usage.used / usage.total) * 100.0)

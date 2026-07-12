@@ -1,8 +1,8 @@
 import sys
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QTabWidget, QPushButton, QLabel, QFrame, QSystemTrayIcon, QMenu)
-from PyQt6.QtGui import QIcon, QFont, QPixmap, QAction, QKeySequence, QShortcut
-from PyQt6.QtCore import Qt
+                             QTabWidget, QPushButton, QLabel, QFrame, QSystemTrayIcon, QMenu, QGraphicsDropShadowEffect)
+from PyQt6.QtGui import QIcon, QFont, QPixmap, QAction, QKeySequence, QShortcut, QColor
+from PyQt6.QtCore import Qt, QPoint
 from pctoolbox import config
 from pctoolbox.ui.dashboard import DashboardView
 from pctoolbox.ui.cleaner_view import CleanerView
@@ -17,22 +17,65 @@ from pctoolbox.ui.performance_benchmark_view import PerformanceBenchmarkView
 from pctoolbox.ui.profile_sync_view import ProfileSyncView
 from pctoolbox.ui.quick_launcher import QuickLauncher
 
+class SidebarNavButton(QPushButton):
+    """
+    Sleek, glowing left navigation bar button.
+    Upon hover or active status, shows a glowing Cyber-Blue (#00F0FF) accent bar
+    on the left edge, matching modern high-fidelity Steam designs.
+    """
+    def __init__(self, text, icon_str=None, parent=None):
+        super().__init__(text, parent)
+        self.setFont(QFont("Segoe UI", 9, QFont.Weight.Medium))
+        self.setCheckable(True)
+        self.setMinimumHeight(44)
+
+        # Style standard, hover and checked states
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #a6adc8;
+                border: none;
+                text-align: left;
+                padding-left: 20px;
+                border-left: 4px solid transparent;
+            }
+            QPushButton:hover {
+                color: #ffffff;
+                background-color: rgba(0, 240, 255, 15);
+                border-left: 4px solid rgba(0, 240, 255, 100);
+            }
+            QPushButton:checked {
+                color: #00F0FF;
+                font-weight: bold;
+                background-color: rgba(0, 240, 255, 30);
+                border-left: 4px solid #00F0FF; /* Cyber-Blue Accent Line */
+            }
+        """)
+
 class MainWindow(QMainWindow):
     """
     Sleek, feature-rich main window for the Steam PC Toolbox application.
-    Integrates all standard/free and advanced views with full support for:
-    - Production-ready non-hardcoded absolute asset paths (PyInstaller / sys._MEIPASS).
-    - Modern Multi-Threading via isolated background worker threads.
-    - Global/Local Hotkey Simulation (F9 key binding) to toggle macros.
-    - Full System Tray integration (minimize to tray on close, run in background).
-    - Alt+Space Floating Quick Launcher search integration.
-    - Pro VS Free feature toggle simulation button.
+    Natively implements a FRAMELESS premium custom shadow interface.
     """
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Steam PC Toolbox v1.0.0 Pro-Edition Suite")
-        self.resize(920, 640)
+        self.resize(1000, 680)
         self._is_closing_for_real = False  # Track if we are fully quitting or just closing window
+
+        # 1. ENFORCE FRAMELESS WINDOW DESIGN
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        # Apply Window Shadow effect dynamically to create breathtaking depth
+        self.shadow_effect = QGraphicsDropShadowEffect(self)
+        self.shadow_effect.setBlurRadius(15)
+        self.shadow_effect.setXOffset(0)
+        self.shadow_effect.setYOffset(0)
+        self.shadow_effect.setColor(QColor("rgba(0, 240, 255, 40)")) # Glow shadow
+
+        # Custom dragging helper states
+        self.drag_position = QPoint()
 
         # Set Window Icon
         app_icon_path = config.get_asset_path("app_icon.png")
@@ -40,93 +83,183 @@ class MainWindow(QMainWindow):
         if not icon.isNull():
             self.setWindowIcon(icon)
 
-        # Apply Modern Dark Futuristic stylesheet
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #11111b;
+        # Master Outer Frame Container
+        self.central_frame = QFrame()
+        self.central_frame.setObjectName("CentralFrame")
+        self.central_frame.setStyleSheet("""
+            QFrame#CentralFrame {
+                background-color: #0B0E14; /* Deep Obsidian */
+                border: 1px solid #2A3241;
+                border-radius: 12px;
             }
             QTabWidget::pane {
-                border: 1px solid #313244;
-                background-color: #181825;
-                border-radius: 8px;
+                border: none;
+                background-color: #0B0E14;
             }
-            QTabBar::tab {
-                background-color: #1e1e2e;
-                color: #a6adc8;
-                border: 1px solid #313244;
-                border-bottom: none;
-                border-top-left-radius: 6px;
-                border-top-right-radius: 6px;
-                padding: 10px 18px;
-                margin-right: 4px;
+            QTabWidget QTabBar {
+                height: 0px; /* Hide default tab bar headers to use our sleek left sidebar instead! */
             }
-            QTabBar::tab:selected {
-                background-color: #181825;
-                color: #cba6f7;
-                border: 1px solid #cba6f7;
-                border-bottom: none;
-                font-weight: bold;
+        """)
+        self.central_frame.setGraphicsEffect(self.shadow_effect)
+        self.setCentralWidget(self.central_frame)
+
+        main_outer_layout = QVBoxLayout(self.central_frame)
+        main_outer_layout.setContentsMargins(0, 0, 0, 0)
+        main_outer_layout.setSpacing(0)
+
+        # 2. Sleek top navigation bar
+        self.top_title_bar = QFrame()
+        self.top_title_bar.setFixedHeight(50)
+        self.top_title_bar.setStyleSheet("""
+            QFrame {
+                background-color: #0F141C;
+                border: none;
+                border-bottom: 1px solid #1E2530;
+                border-top-left-radius: 11px;
+                border-top-right-radius: 11px;
             }
-            QTabBar::tab:hover {
-                background-color: #313244;
+            QLabel {
                 color: #ffffff;
+                font-weight: bold;
+                letter-spacing: 1.5px;
             }
         """)
 
-        # Main Central Widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        top_bar_layout = QHBoxLayout(self.top_title_bar)
+        top_bar_layout.setContentsMargins(15, 0, 15, 0)
 
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        # Title/Logo
+        lbl_app_logo = QLabel("🛡️ STEAM PC TOOLBOX")
+        lbl_app_logo.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+        lbl_app_logo.setStyleSheet("color: #00F0FF;")
+        top_bar_layout.addWidget(lbl_app_logo)
+        top_bar_layout.addStretch()
 
-        # Header Row
-        header_layout = QHBoxLayout()
-        header_title = QLabel("STEAM PC TOOLBOX")
-        header_title.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
-        header_title.setStyleSheet("color: #ffffff; letter-spacing: 1px;")
-        header_layout.addWidget(header_title)
-        header_layout.addStretch()
-
-        # License Toggler & Indicator
+        # Premium Toggle state
         self.license_btn = QPushButton()
-        self.license_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+        self.license_btn.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
         self.license_btn.clicked.connect(self.toggle_license_state)
-        header_layout.addWidget(self.license_btn)
+        top_bar_layout.addWidget(self.license_btn)
 
-        main_layout.addLayout(header_layout)
+        # Separator gap
+        top_bar_layout.addSpacing(10)
 
-        # Tab Views
+        # Custom Minimize / Close Buttons
+        btn_min = QPushButton("–")
+        btn_min.setFont(QFont("Consolas", 12))
+        btn_min.setFixedSize(28, 28)
+        btn_min.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #a6adc8;
+                border: 1px solid #2A3241;
+                border-radius: 14px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 240, 255, 30);
+                color: #00F0FF;
+            }
+        """)
+        btn_min.clicked.connect(self.showMinimized)
+        top_bar_layout.addWidget(btn_min)
+
+        btn_close = QPushButton("×")
+        btn_close.setFont(QFont("Consolas", 14))
+        btn_close.setFixedSize(28, 28)
+        btn_close.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #a6adc8;
+                border: 1px solid #2A3241;
+                border-radius: 14px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 0, 60, 30);
+                color: #FF003C;
+                border: 1px solid #FF003C;
+            }
+        """)
+        btn_close.clicked.connect(self.close)
+        top_bar_layout.addWidget(btn_close)
+
+        main_outer_layout.addWidget(self.top_title_bar)
+
+        # Body Layout (Split Left Sidebar & Central tab panel)
+        body_container = QWidget()
+        body_container.setStyleSheet("background: transparent;")
+        body_layout = QHBoxLayout(body_container)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(0)
+
+        # 3. Clean Left Sidebar for Navigation
+        self.left_sidebar = QFrame()
+        self.left_sidebar.setFixedWidth(220)
+        self.left_sidebar.setStyleSheet("""
+            QFrame {
+                background-color: #0F141C;
+                border: none;
+                border-right: 1px solid #1E2530;
+                border-bottom-left-radius: 11px;
+            }
+        """)
+        sidebar_layout = QVBoxLayout(self.left_sidebar)
+        sidebar_layout.setContentsMargins(0, 15, 0, 15)
+        sidebar_layout.setSpacing(5)
+
+        # Nav Buttons list
+        self.nav_buttons = []
+        self.nav_tabs_map = [] # list of tuples: (button, tab_widget)
+
+        # Tabs Widget definition
         self.tabs = QTabWidget()
+        self.tabs.setStyleSheet("background: transparent;")
 
-        # Instantiate views
+        # Instantiate premium child views
         self.view_dashboard = DashboardView()
         self.view_cleaner = CleanerView()
+        self.view_deep_cleaner = DeepCleanerView()
+        self.view_window_manager = WindowManagerView()
+        self.view_performance = PerformanceBenchmarkView()
+        self.view_privacy_shield = PrivacyShieldView()
+        self.view_profile_sync = ProfileSyncView()
         self.view_optimizer = OptimizerView()
         self.view_macro = MacroView()
         self.view_network = NetworkView()
         self.view_organizer = OrganizerView()
-        self.view_deep_cleaner = DeepCleanerView()
-        self.view_window_manager = WindowManagerView()
-        self.view_privacy_shield = PrivacyShieldView()
-        self.view_performance = PerformanceBenchmarkView()
-        self.view_profile_sync = ProfileSyncView()
 
-        # Add tabs
-        self.tabs.addTab(self.view_dashboard, "Dashboard")
-        self.tabs.addTab(self.view_cleaner, "System Cleaner")
-        self.tabs.addTab(self.view_deep_cleaner, "Deep Cleaner")
-        self.tabs.addTab(self.view_window_manager, "Window Manager")
-        self.tabs.addTab(self.view_performance, "Performance & Stress")
-        self.tabs.addTab(self.view_privacy_shield, "Privacy Shield")
-        self.tabs.addTab(self.view_profile_sync, "Profile & Sync")
-        self.tabs.addTab(self.view_optimizer, "Game Optimizer (Pro)")
-        self.tabs.addTab(self.view_macro, "CV Automation (Pro)")
-        self.tabs.addTab(self.view_network, "Network & Connectivity")
-        self.tabs.addTab(self.view_organizer, "Smart Organizer")
+        # Tab specifications tuple: (Sleek Icon/Title, Widget)
+        tab_list = [
+            ("📊 Dashboard", self.view_dashboard),
+            ("🧹 Quick Cleaner", self.view_cleaner),
+            ("⚙️ Deep Cleaner", self.view_deep_cleaner),
+            ("🖼️ Window Manager", self.view_window_manager),
+            ("🔥 Performance OSD", self.view_performance),
+            ("🛡️ Privacy Shield", self.view_privacy_shield),
+            ("🔐 Profile & Sync", self.view_profile_sync),
+            ("🚀 Game Optimizer", self.view_optimizer),
+            ("🤖 CV Auto Macro", self.view_macro),
+            ("🌐 Network Manager", self.view_network),
+            ("📁 Smart Organizer", self.view_organizer)
+        ]
 
-        main_layout.addWidget(self.tabs)
+        for index, (title, widget) in enumerate(tab_list):
+            self.tabs.addTab(widget, title)
+
+            # Create sleek nav button
+            btn = SidebarNavButton(title)
+            btn.clicked.connect(lambda checked, idx=index: self.transition_tab(idx))
+            sidebar_layout.addWidget(btn)
+            self.nav_buttons.append(btn)
+            self.nav_tabs_map.append((btn, widget))
+
+        # Check/select first dashboard button initially
+        self.nav_buttons[0].setChecked(True)
+
+        sidebar_layout.addStretch()
+        body_layout.addWidget(self.left_sidebar)
+        body_layout.addWidget(self.tabs, 1)
+
+        main_outer_layout.addWidget(body_container)
 
         # Setup F9 Hotkey/Shortcut
         self.shortcut_f9 = QShortcut(QKeySequence("F9"), self)
@@ -142,19 +275,20 @@ class MainWindow(QMainWindow):
         # Initialize License State & UI texts
         self.update_license_ui_elements()
 
-        # Connect Dashboard buttons to their tab view transitions
-        self.view_dashboard.btn_stress.clicked.connect(lambda: self.tabs.setCurrentWidget(self.view_performance))
-        self.view_dashboard.btn_overlay.clicked.connect(lambda: self.tabs.setCurrentWidget(self.view_window_manager))
-
         # Initialize System Tray
         self.setup_system_tray()
+
+    def transition_tab(self, index):
+        """Swaps active QTabWidget index and toggles checked states on sidebar button groups."""
+        self.tabs.setCurrentIndex(index)
+        for i, btn in enumerate(self.nav_buttons):
+            btn.setChecked(i == index)
 
     def toggle_quick_launcher(self):
         """Shows or hides the floating launcher window."""
         if self.quick_launcher.isVisible():
             self.quick_launcher.hide()
         else:
-            # Centering the floating widget relative to the main window
             main_geo = self.geometry()
             launcher_width = self.quick_launcher.width()
             launcher_height = self.quick_launcher.height()
@@ -187,33 +321,33 @@ class MainWindow(QMainWindow):
     def update_license_ui_elements(self):
         """Updates main window and all child widgets when license status updates."""
         if config.IS_PRO_VERSION:
-            self.license_btn.setText("PRO MODE ENABLED (Demo Toggle)")
+            self.license_btn.setText("PRO MODE ENABLED")
             self.license_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #a6e3a1;
-                    color: #11111b;
-                    border: 1px solid #a6e3a1;
+                    background-color: rgba(0, 240, 255, 30);
+                    color: #00F0FF;
+                    border: 1px solid #00F0FF;
                     border-radius: 4px;
                     padding: 5px 12px;
                 }
                 QPushButton:hover {
-                    background-color: #11111b;
-                    color: #a6e3a1;
+                    background-color: #00F0FF;
+                    color: #11111b;
                 }
             """)
         else:
-            self.license_btn.setText("FREE MODE (Demo Click to Upgrade)")
+            self.license_btn.setText("FREE MODE (Demo Toggle)")
             self.license_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #f38ba8;
-                    color: #11111b;
-                    border: 1px solid #f38ba8;
+                    background-color: rgba(255, 0, 60, 30);
+                    color: #FF003C;
+                    border: 1px solid #FF003C;
                     border-radius: 4px;
                     padding: 5px 12px;
                 }
                 QPushButton:hover {
-                    background-color: #11111b;
-                    color: #f38ba8;
+                    background-color: #FF003C;
+                    color: #ffffff;
                 }
             """)
 
@@ -238,7 +372,6 @@ class MainWindow(QMainWindow):
         if not icon.isNull():
             self.tray_icon.setIcon(icon)
         else:
-            # Fallback
             self.tray_icon.setIcon(QIcon.fromTheme("system-run"))
 
         # Context Menu
@@ -274,13 +407,27 @@ class MainWindow(QMainWindow):
 
     def trigger_quick_clean(self):
         self.showNormal()
-        self.tabs.setCurrentWidget(self.view_cleaner)
+        self.tabs.setCurrentIndex(1) # system cleaner index
         self.view_cleaner.start_cleanup()
 
     def quit_application(self):
         self._is_closing_for_real = True
         self.tray_icon.hide()
         self.close()
+
+    # Frameless dragging native calculations
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Check if clicked inside our top title bar region
+            if event.position().y() <= self.top_title_bar.height():
+                self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton:
+            if event.position().y() <= self.top_title_bar.height() + 20: # Allow slight drag offset
+                self.move(event.globalPosition().toPoint() - self.drag_position)
+                event.accept()
 
     def closeEvent(self, event):
         """
