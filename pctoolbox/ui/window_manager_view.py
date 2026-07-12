@@ -415,4 +415,3 @@ class WindowManagerView(QWidget):
         if self.osd_widget:
             self.osd_widget.close()
             self.osd_widget = None
-stream = None
