@@ -11,6 +11,7 @@ from pctoolbox.ui.macro_view import MacroView
 from pctoolbox.ui.network_view import NetworkView
 from pctoolbox.ui.organizer_view import OrganizerView
 from pctoolbox.ui.deep_cleaner_view import DeepCleanerView
+from pctoolbox.ui.window_manager_view import WindowManagerView
 from pctoolbox.ui.quick_launcher import QuickLauncher
 
 class MainWindow(QMainWindow):
@@ -104,11 +105,13 @@ class MainWindow(QMainWindow):
         self.view_network = NetworkView()
         self.view_organizer = OrganizerView()
         self.view_deep_cleaner = DeepCleanerView()
+        self.view_window_manager = WindowManagerView()
 
         # Add tabs
         self.tabs.addTab(self.view_dashboard, "Dashboard")
         self.tabs.addTab(self.view_cleaner, "System Cleaner")
         self.tabs.addTab(self.view_deep_cleaner, "Deep Cleaner")
+        self.tabs.addTab(self.view_window_manager, "Window Manager")
         self.tabs.addTab(self.view_optimizer, "Game Optimizer (Pro)")
         self.tabs.addTab(self.view_macro, "CV Automation (Pro)")
         self.tabs.addTab(self.view_network, "Network & Connectivity")
@@ -208,6 +211,7 @@ class MainWindow(QMainWindow):
         self.view_network.refresh_ui()
         self.view_organizer.refresh_ui()
         self.view_deep_cleaner.refresh_ui()
+        self.view_window_manager.refresh_ui()
 
     def setup_system_tray(self):
         """Creates the native system tray integration to prevent Taskbar clutter."""
@@ -287,6 +291,9 @@ class MainWindow(QMainWindow):
 
             # Stop Deep Cleaner threads
             self.view_deep_cleaner.stop_all_workers()
+
+            # Stop Window Manager & OSD threads
+            self.view_window_manager.stop_all_workers()
 
             # Stop Quick Launcher threads
             if self.quick_launcher.search_thread and self.quick_launcher.search_thread.isRunning():
